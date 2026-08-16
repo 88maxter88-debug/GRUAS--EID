@@ -1,0 +1,52 @@
+const menu = document.querySelector('.menu-toggle');
+const links = document.querySelector('.nav-links');
+menu?.addEventListener('click', () => { const open = links.classList.toggle('open'); menu.setAttribute('aria-expanded', open); menu.innerHTML = `<i class="fa-solid fa-${open ? 'xmark' : 'bars'}"></i>`; });
+document.querySelectorAll('.nav-links a').forEach(a => a.addEventListener('click', () => { links.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); menu.innerHTML = '<i class="fa-solid fa-bars"></i>'; }));
+const observer = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); } }), { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+document.querySelectorAll('[data-carousel], .work-carousel').forEach(carousel => {
+  const track = carousel.querySelector('.carousel-track');
+  const slides = [...track.querySelectorAll('.work-slide, .equipment-slide')];
+  const dots = carousel.parentElement?.querySelector('.carousel-dots') || carousel.querySelector('.carousel-dots');
+  let currentSlide = 0;
+  if (!track || !slides.length || !dots) return;
+  slides.forEach((_, index) => { const dot = document.createElement('button'); dot.setAttribute('aria-label', `Ir a elemento ${index + 1}`); dot.addEventListener('click', () => moveCarousel(index)); dots.appendChild(dot); });
+  const updateCarousel = () => { track.style.transform = `translateX(-${currentSlide * 100}%)`; [...dots.children].forEach((dot, index) => dot.classList.toggle('active', index === currentSlide)); };
+  const moveCarousel = index => { currentSlide = (index + slides.length) % slides.length; updateCarousel(); };
+  carousel.querySelector('.carousel-btn.prev')?.addEventListener('click', () => moveCarousel(currentSlide - 1));
+  carousel.querySelector('.carousel-btn.next')?.addEventListener('click', () => moveCarousel(currentSlide + 1));
+  updateCarousel();
+});
+document.querySelector('#year').textContent = new Date().getFullYear();
+document.querySelector('#service-form').addEventListener('submit', e => { e.preventDefault(); const data = new FormData(e.target); const line = k => data.get(k) ? `\n${k}: ${data.get(k)}` : ''; const message = `Hola GRUAS EID, necesito solicitar un servicio de transporte de vehículo.${line('nombre')}${line('telefono')}${line('empresa')}${line('servicio')}${line('recogida')}${line('destino')}${line('vehiculo')}${line('fecha')}${line('mensaje')}`; window.open(`https://wa.me/18099451891?text=${encodeURIComponent(message)}`, '_blank', 'noopener'); });
+const reviewDialog = document.querySelector('#review-dialog');
+const reviewForm = document.querySelector('#review-form');
+const reviewGrid = document.querySelector('#review-grid');
+const reviewFeedback = document.querySelector('#review-feedback');
+const reviewStorageKey = 'gruaseid-reviews';
+const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
+const formatReviewDate = date => new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
+const renderReview = review => {
+  const name = escapeHtml(review.name);
+  const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+  const article = document.createElement('article');
+  article.className = 'review user-review reveal visible';
+  article.innerHTML = `<div class="stars" aria-label="${review.rating} de 5 estrellas">${stars}</div><p>“${escapeHtml(review.comment)}”</p><footer><div class="avatar">${name.charAt(0).toUpperCase()}</div><div><b>${name}</b><small>${formatReviewDate(review.date)}</small></div></footer>`;
+  document.querySelector('#no-reviews')?.remove();
+  reviewGrid.prepend(article);
+};
+try { JSON.parse(localStorage.getItem(reviewStorageKey) || '[]').forEach(renderReview); } catch { localStorage.removeItem(reviewStorageKey); }
+document.querySelector('#open-review-form')?.addEventListener('click', () => { reviewFeedback.textContent = ''; reviewDialog.showModal(); });
+reviewForm?.addEventListener('submit', event => {
+  event.preventDefault();
+  const data = new FormData(reviewForm);
+  const review = { name: data.get('nombre').trim(), rating: Number(data.get('calificacion')), comment: data.get('comentario').trim(), date: new Date().toISOString() };
+  if (!review.name || !review.comment) return;
+  const savedReviews = JSON.parse(localStorage.getItem(reviewStorageKey) || '[]');
+  savedReviews.unshift(review);
+  localStorage.setItem(reviewStorageKey, JSON.stringify(savedReviews));
+  renderReview(review);
+  reviewForm.reset();
+  reviewFeedback.textContent = '¡Gracias! Tu reseña fue publicada.';
+  setTimeout(() => reviewDialog.close(), 1200);
+});
